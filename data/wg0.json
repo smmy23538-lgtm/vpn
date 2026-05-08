@@ -1,0 +1,20 @@
+{
+  "server": {
+    "privateKey": "WBf4aWCmzCEDjMJZzwYKxiWKB7P2znWxgoA5fvxa+UA=",
+    "publicKey": "YsaybFRRzTwbGMgSuty8YG10xI3BFOpvHO6hmtBSW3g=",
+    "address": "10.8.0.1"
+  },
+  "clients": {
+    "4bcef472-2147-4acc-a5ae-ebba3cf4ef0f": {
+      "id": "4bcef472-2147-4acc-a5ae-ebba3cf4ef0f",
+      "name": "IPHONE",
+      "address": "10.8.0.2",
+      "privateKey": "mKLmnZepPq6EVtkxNsXue03maIHBLYL+H2YrD5n4knU=",
+      "publicKey": "Qbi8nzY+vsfdukKhnSrYsRKSWUjrw+ydRoQQ7RFfZ34=",
+      "preSharedKey": "ARbxPS1oPhAVZ+1u/gqwSNbfWVZOtfmwqO0ti00IC+0=",
+      "createdAt": "2026-05-08T13:55:06.991Z",
+      "updatedAt": "2026-05-08T13:55:06.991Z",
+      "enabled": true
+    }
+  }
+}
