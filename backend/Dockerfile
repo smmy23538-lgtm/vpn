@@ -15,7 +15,8 @@ COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/src/migrations ./src/migrations
+# SQL files must live next to run.js in dist/migrations/ — __dirname resolves there at runtime
+COPY --from=builder /app/src/migrations ./dist/migrations
 
 EXPOSE 3001
 

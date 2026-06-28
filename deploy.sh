@@ -264,10 +264,14 @@ $DC up migrate 2>&1 | while IFS= read -r line; do
   if [[ "$line" =~ (migration|Migration|error|Error|exited) ]]; then
     echo -e "    ${DIM}${line}${NC}"
   fi
-done
+done || true   # let docker inspect decide — the pipe's exit code is unreliable with pipefail
 
-EXIT_CODE=$($D inspect vpn-migrate --format='{{.State.ExitCode}}' 2>/dev/null || echo "0")
-[[ "$EXIT_CODE" == "0" ]] || die "Migration exited with code $EXIT_CODE. Run: $D logs vpn-migrate"
+EXIT_CODE=$($D inspect vpn-migrate --format='{{.State.ExitCode}}' 2>/dev/null || echo "1")
+if [[ "$EXIT_CODE" != "0" ]]; then
+  echo -e "\n  ${RED}Migration logs:${NC}"
+  $D logs vpn-migrate 2>&1 | tail -30 | sed 's/^/    /'
+  die "Migration exited with code $EXIT_CODE."
+fi
 ok "Migrations complete"
 
 # Update seeded server with the actual server host.
@@ -294,13 +298,16 @@ if [[ "$EXISTS" -gt 0 && "$SKIP_ENV" == "1" ]]; then
 elif [[ "$SKIP_ENV" == "1" ]]; then
   warn ".env existed but no admin found. Re-run without existing .env to create admin."
 else
-  info "Hashing admin password (using node:20-alpine)..."
-  ADMIN_HASH=$($D run --rm \
-    -e PASS="$ADMIN_PASS" \
-    node:20-alpine \
-    sh -c 'npm install -s bcryptjs 2>/dev/null && node -e "require(\"bcryptjs\").hash(process.env.PASS,12).then(h=>process.stdout.write(h))"' \
+  # Use the already-built backend image (it has bcrypt installed as a production dep).
+  # docker compose run --no-deps avoids starting postgres again; 2>/dev/null silences
+  # Compose status lines which go to stderr — only the hash reaches stdout.
+  info "Hashing admin password (using backend image)..."
+  ADMIN_HASH=$($DC run --no-deps --rm \
+    -e "PASS=$ADMIN_PASS" \
+    backend \
+    node -e "require('bcrypt').hash(process.env.PASS,12).then(h=>process.stdout.write(h))" \
     2>/dev/null)
-  [[ -n "$ADMIN_HASH" ]] || die "Failed to generate password hash."
+  [[ -n "$ADMIN_HASH" ]] || die "Failed to generate password hash. Run: $D logs vpn-backend"
 
   ADMIN_EMAIL_SQL="${ADMIN_EMAIL//\'/\'\'}"
   ADMIN_NAME_SQL="${ADMIN_NAME//\'/\'\'}"
