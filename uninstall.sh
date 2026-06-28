@@ -16,10 +16,16 @@ ok()      { echo -e "  ${GREEN}✔${NC} $*"; }
 warn()    { echo -e "  ${YELLOW}⚠${NC}  $*"; }
 die()     { echo -e "\n  ${RED}✖ FATAL:${NC} $*\n" >&2; exit 1; }
 
-[[ -f "docker-compose.platform.yml" ]] || die "Run from the vpn-platform project root."
+COMPOSE_FILE="docker-compose.platform.yml"
+COMPOSE_SSL="docker-compose.ssl.yml"
+[[ -f "$COMPOSE_FILE" ]] || die "Run from the vpn-platform project root."
 if [[ $EUID -eq 0 ]]; then SUDO=""; else SUDO="sudo"; fi
 D="$SUDO docker"
-DC="$SUDO docker compose -f docker-compose.platform.yml"
+if [[ -f "$COMPOSE_SSL" ]]; then
+  DC="$SUDO docker compose -f $COMPOSE_FILE -f $COMPOSE_SSL"
+else
+  DC="$SUDO docker compose -f $COMPOSE_FILE"
+fi
 
 KEEP_DATA=0
 AUTO_YES=0
@@ -94,6 +100,16 @@ if [[ $KEEP_DATA -eq 0 ]]; then
   info "Removing .env and credentials..."
   rm -f .env .admin-credentials
   ok ".env removed"
+fi
+
+# Remove SSL nginx config if present
+if [[ -f "$COMPOSE_SSL" ]] && [[ $KEEP_DATA -eq 0 ]]; then
+  info "Removing nginx SSL config..."
+  $SUDO rm -f /etc/nginx/sites-enabled/vpn-platform \
+               /etc/nginx/sites-available/vpn-platform 2>/dev/null || true
+  $SUDO systemctl reload nginx 2>/dev/null || true
+  rm -f "$COMPOSE_SSL"
+  ok "Nginx site config removed"
 fi
 
 # Remove dangling images

@@ -16,12 +16,17 @@ die()     { echo -e "\n  ${RED}✖ FATAL:${NC} $*\n" >&2; exit 1; }
 divider() { echo -e "\n${BOLD}${CYAN}── $1 ──────────────────────────────────────────────────────────${NC}"; }
 
 COMPOSE_FILE="docker-compose.platform.yml"
+COMPOSE_SSL="docker-compose.ssl.yml"
 [[ -f "$COMPOSE_FILE" ]] || die "Run from the vpn-platform project root."
 [[ -f ".env" ]]          || die ".env not found. Run ./deploy.sh first."
 
 if [[ $EUID -eq 0 ]]; then SUDO=""; else SUDO="sudo"; fi
 D="$SUDO docker"
-DC="$SUDO docker compose -f $COMPOSE_FILE"
+if [[ -f "$COMPOSE_SSL" ]]; then
+  DC="$SUDO docker compose -f $COMPOSE_FILE -f $COMPOSE_SSL"
+else
+  DC="$SUDO docker compose -f $COMPOSE_FILE"
+fi
 
 echo -e "\n${BOLD}${CYAN}  VPN Platform — Update${NC}"
 echo -e "  ${DIM}$(date '+%Y-%m-%d %H:%M:%S')${NC}\n"

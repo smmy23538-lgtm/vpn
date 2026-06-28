@@ -3,9 +3,10 @@ import {
   getVpnStatus,
   getClientConfig,
   getConnectedUsers,
+  changeServer as changeServerService,
 } from '../services/vpn.service';
 import { findById } from '../services/user.service';
-import { NotFoundError } from '../utils/errors';
+import { NotFoundError, ValidationError } from '../utils/errors';
 
 export async function status(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -28,6 +29,15 @@ export async function downloadConfig(req: Request, res: Response, next: NextFunc
   } catch (err) {
     next(err);
   }
+}
+
+export async function changeServer(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { server_id } = req.body;
+    if (!server_id) throw new ValidationError('server_id is required');
+    await changeServerService(req.user!.userId, server_id);
+    res.json({ success: true, message: 'Server changed. Download your new VPN config to reconnect.' });
+  } catch (err) { next(err); }
 }
 
 export async function connectedUsers(req: Request, res: Response, next: NextFunction): Promise<void> {

@@ -3,6 +3,17 @@ import { wgManager } from './wgeasy.manager';
 import { NotFoundError, ConflictError } from '../utils/errors';
 import { logger } from '../utils/logger';
 import { env } from '../config/env';
+import { encrypt, decrypt } from '../utils/crypto';
+
+function encryptPw(pw: string | null | undefined): string | null {
+  if (!pw) return null;
+  return encrypt(pw);
+}
+
+function decryptPw(enc: string | null | undefined): string | null {
+  if (!enc) return null;
+  try { return decrypt(enc); } catch { return null; }
+}
 
 export interface ServerRecord {
   id: string;
@@ -26,20 +37,23 @@ export interface ServerRecord {
 }
 
 export async function listServers(): Promise<ServerRecord[]> {
-  return query<ServerRecord>(
+  const rows = await query<ServerRecord>(
     `SELECT s.*,
             (SELECT COUNT(*) FROM users u WHERE u.server_id = s.id AND u.status = 'active')::int AS current_users
      FROM servers s ORDER BY s.is_active DESC, s.name`
   );
+  return rows.map((s) => ({ ...s, wg_password: decryptPw(s.wg_password) }));
 }
 
 export async function getServer(id: string): Promise<ServerRecord | null> {
-  return queryOne<ServerRecord>(
+  const s = await queryOne<ServerRecord>(
     `SELECT s.*,
             (SELECT COUNT(*) FROM users u WHERE u.server_id = s.id AND u.status = 'active')::int AS current_users
      FROM servers s WHERE s.id = $1`,
     [id]
   );
+  if (!s) return null;
+  return { ...s, wg_password: decryptPw(s.wg_password) };
 }
 
 export async function createServer(data: {
@@ -66,23 +80,28 @@ export async function createServer(data: {
       data.city ?? null, data.flag ?? null,
       data.host, data.port ?? 51821,
       data.wg_host, data.wg_port ?? 51830,
-      data.wg_password ?? null,
+      encryptPw(data.wg_password ?? null),
       data.max_users ?? 100,
       data.description ?? null,
     ]
   );
   if (!s) throw new Error('Server creation failed');
-  return s;
+  return { ...s, wg_password: decryptPw(s.wg_password) };
 }
 
 export async function updateServer(
   id: string,
   data: Partial<ServerRecord>
 ): Promise<ServerRecord> {
+  const patchData: Partial<ServerRecord> = { ...data };
+  if (patchData.wg_password !== undefined) {
+    patchData.wg_password = encryptPw(patchData.wg_password);
+  }
+
   const fields: string[] = [];
   const values: unknown[] = [];
   let i = 1;
-  for (const [k, v] of Object.entries(data)) {
+  for (const [k, v] of Object.entries(patchData)) {
     if (['id', 'created_at', 'current_users'].includes(k)) continue;
     fields.push(`${k} = $${i++}`);
     values.push(v);
@@ -94,7 +113,7 @@ export async function updateServer(
     values
   );
   if (!s) throw new NotFoundError('Server');
-  return s;
+  return { ...s, wg_password: decryptPw(s.wg_password) };
 }
 
 export async function deleteServer(id: string): Promise<void> {

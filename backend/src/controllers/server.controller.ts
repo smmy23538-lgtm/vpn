@@ -10,7 +10,12 @@ import { logAction } from '../services/audit.service';
 export async function list(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const servers = await listServers();
-    res.json({ success: true, data: servers });
+    // Customers must not see the wg_password (it's only needed server-side)
+    const isAdmin = req.user?.role === 'admin';
+    const data = isAdmin
+      ? servers
+      : servers.map(({ wg_password: _pw, ...rest }) => rest);
+    res.json({ success: true, data });
   } catch (err) { next(err); }
 }
 

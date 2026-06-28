@@ -7,6 +7,7 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
   isAdmin: boolean;
   isAuthenticated: boolean;
 }
@@ -40,12 +41,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(tokens.user);
   };
 
+  const refreshUser = useCallback(async () => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+    try { setUser(await api.get<User>('/auth/me')); } catch { /* ignore */ }
+  }, []);
+
   return (
     <AuthContext.Provider value={{
       user,
       loading,
       login,
       logout,
+      refreshUser,
       isAdmin: user?.role === 'admin',
       isAuthenticated: !!user,
     }}>

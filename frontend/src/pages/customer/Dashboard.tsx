@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Shield, ShieldOff, Globe, Clock, ArrowDown, ArrowUp,
-  AlertCircle, Wifi, Download, ChevronDown, Zap,
+  AlertCircle, Wifi, Download, ChevronDown, Zap, CheckCircle, XCircle,
 } from 'lucide-react';
 import { useVpn } from '../../hooks/useVpn';
 import { useAuth } from '../../contexts/AuthContext';
+import { api } from '../../api/client';
 import { AppLayout } from '../../components/layout/AppLayout';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
 import { SetupWizard } from '../../components/vpn/SetupWizard';
-import { formatDistanceToNow, differenceInSeconds, isAfter } from 'date-fns';
+import { differenceInSeconds, isAfter } from 'date-fns';
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -35,10 +36,12 @@ function formatDuration(seconds: number): string {
 
 export function Dashboard() {
   const { status, loading, servers, speedRx, speedTx, downloadConfig } = useVpn();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [showSetup, setShowSetup] = useState(false);
   const [sessionSeconds, setSessionSeconds] = useState(0);
   const [showServerList, setShowServerList] = useState(false);
+  const [serverSwitching, setServerSwitching] = useState(false);
+  const [serverMsg, setServerMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Connection timer
@@ -63,9 +66,39 @@ export function Dashboard() {
 
   const currentServer = servers.find((s) => s.id === user?.server_id) ?? servers[0];
 
+  const handleServerChange = async (serverId: string) => {
+    if (serverId === user?.server_id || serverSwitching) return;
+    setShowServerList(false);
+    setServerSwitching(true);
+    setServerMsg(null);
+    try {
+      await api.put('/vpn/server', { server_id: serverId });
+      await refreshUser();
+      setServerMsg({ type: 'ok', text: 'Server changed — download your new VPN config to reconnect.' });
+    } catch {
+      setServerMsg({ type: 'err', text: 'Failed to switch server. Please try again.' });
+    } finally {
+      setServerSwitching(false);
+      setTimeout(() => setServerMsg(null), 6000);
+    }
+  };
+
   return (
     <AppLayout>
       <div className="min-h-full flex flex-col bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950 pb-4">
+
+        {/* Server change status message */}
+        {serverMsg && (
+          <div className={`mx-4 mt-4 flex items-center gap-2 rounded-xl px-4 py-3 text-sm border
+            ${serverMsg.type === 'ok'
+              ? 'bg-emerald-900/20 border-emerald-700/60 text-emerald-300'
+              : 'bg-red-900/20 border-red-700/60 text-red-300'}`}>
+            {serverMsg.type === 'ok'
+              ? <CheckCircle className="w-4 h-4 flex-shrink-0" />
+              : <XCircle className="w-4 h-4 flex-shrink-0" />}
+            <span>{serverMsg.text}</span>
+          </div>
+        )}
 
         {/* Server selector strip */}
         <div className="px-4 pt-4">
@@ -104,9 +137,10 @@ export function Dashboard() {
               {servers.filter((s) => s.is_active).map((s) => (
                 <button
                   key={s.id}
-                  onClick={() => setShowServerList(false)}
+                  disabled={serverSwitching}
+                  onClick={() => handleServerChange(s.id)}
                   className={`w-full flex items-center justify-between px-4 py-3 hover:bg-slate-700/60
-                             transition border-b border-slate-700/50 last:border-0
+                             transition border-b border-slate-700/50 last:border-0 disabled:opacity-50
                              ${s.id === user?.server_id ? 'bg-brand-900/30' : ''}`}
                 >
                   <div className="flex items-center gap-3">

@@ -2,7 +2,7 @@ import { wgManager } from './wgeasy.manager';
 import { updateUser, findById } from './user.service';
 import { logAction } from './audit.service';
 import { createNotification } from './notification.service';
-import { getServerForUser, getDefaultServer, ServerRecord } from './server.service';
+import { getServerForUser, getDefaultServer, getServer, ServerRecord } from './server.service';
 import { query } from '../config/database';
 import { VpnStatus, User } from '../types';
 import { env } from '../config/env';
@@ -150,10 +150,14 @@ export async function getConnectedUsers() {
   const results = [];
   for (const u of usersWithPeers) {
     try {
-      const wg = (u as unknown as { server_host: string; server_port: number; wg_password: string }).server_host
+      const row = u as unknown as { server_host: string; server_port: number; wg_password: string | null };
+      const rawPw = row.wg_password;
+      let decryptedPw: string | null = null;
+      if (rawPw) { try { decryptedPw = decrypt(rawPw); } catch { decryptedPw = null; } }
+      const wg = row.server_host
         ? wgManager.getInstance({
-            url: `http://${(u as unknown as { server_host: string; server_port: number }).server_host}:${(u as unknown as { server_port: number }).server_port}`,
-            password: (u as unknown as { wg_password: string }).wg_password ?? env.WGEASY_PASSWORD,
+            url: `http://${row.server_host}:${row.server_port}`,
+            password: decryptedPw ?? env.WGEASY_PASSWORD,
           })
         : wgManager.getDefault();
 
@@ -180,7 +184,40 @@ export async function getConnectedUsers() {
   return results;
 }
 
+export async function changeServer(userId: string, serverId: string): Promise<void> {
+  const user = await findById(userId);
+  if (!user) throw new NotFoundError('User');
+
+  const newServer = await getServer(serverId);
+  if (!newServer || !newServer.is_active) throw new AppError('Server not available', 400);
+
+  if (user.server_id === serverId) return;
+
+  // Remove peer from old server
+  if (user.wg_client_id && user.server_id) {
+    const oldServer = await getServer(user.server_id);
+    if (oldServer) {
+      try { await wgFor(oldServer).deleteClient(user.wg_client_id); } catch { /* may already be gone */ }
+    }
+  }
+
+  // Clear WireGuard data — user must re-download config on new server
+  await updateUser(userId, {
+    server_id: serverId,
+    wg_client_id: null,
+    wg_client_ip: null,
+    wg_public_key: null,
+    wg_private_key: null,
+    wg_preshared_key: null,
+  });
+
+  await logAction('vpn.server.changed', {
+    userId,
+    actorId: userId,
+    details: { new_server: newServer.name, server_id: serverId },
+  });
+}
+
 async function getServerById(id: string): Promise<ServerRecord | null> {
-  const { queryOne } = await import('../config/database');
-  return queryOne<ServerRecord>('SELECT * FROM servers WHERE id = $1', [id]);
+  return getServer(id);
 }
