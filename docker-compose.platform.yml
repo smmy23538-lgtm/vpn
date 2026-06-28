@@ -70,7 +70,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: ["node", "-r", "ts-node/register", "src/migrations/run.ts"]
+    command: ["node", "dist/migrations/run.js"]
     environment:
       DATABASE_URL: postgresql://vpnuser:${POSTGRES_PASSWORD:-changeme_strong_password}@postgres:5432/vpnplatform
       NODE_ENV: production

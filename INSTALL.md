@@ -53,30 +53,37 @@ This creates the `users`, `audit_logs`, `servers`, and `user_servers` tables.
 
 ## Step 4 — Create the first admin user
 
-After migrations complete, create your admin account:
+**Step 4a** — Generate a bcrypt hash for your chosen admin password:
 
 ```bash
-docker compose -f docker-compose.platform.yml run --rm backend \
-  node -e "
-const bcrypt = require('bcrypt');
-const { Pool } = require('pg');
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-async function main() {
-  const hash = await bcrypt.hash('YourAdminPassword123!', 12);
-  const expiry = new Date('2099-12-31');
-  await pool.query(
-    \`INSERT INTO users (email, password_hash, full_name, role, expiration_date)
-     VALUES (\$1, \$2, \$3, 'admin', \$4)\`,
-    ['admin@yourdomain.com', hash, 'Administrator', expiry]
-  );
-  console.log('Admin created');
-  await pool.end();
-}
-main().catch(console.error);
-"
+docker run --rm node:20-alpine node -e \
+  "require('bcrypt').hash('YourAdminPassword123!', 12).then(h => console.log(h))"
 ```
 
-Change `admin@yourdomain.com` and `YourAdminPassword123!` to your values.
+Copy the full output (starts with `$2b$12$...`). Then:
+
+**Step 4b** — Insert the admin user directly into PostgreSQL:
+
+```bash
+docker exec -i vpn-postgres psql -U vpnuser vpnplatform <<'SQL'
+INSERT INTO users (email, password_hash, full_name, role, activation_date, expiration_date)
+VALUES (
+  'admin@yourdomain.com',
+  '$2b$12$PASTE_YOUR_HASH_HERE',
+  'Administrator',
+  'admin',
+  NOW(),
+  '2099-12-31'
+);
+SQL
+```
+
+Replace `admin@yourdomain.com`, the hash, and `Administrator` with your values.
+
+**Verify it worked:**
+```bash
+docker exec -i vpn-postgres psql -U vpnuser vpnplatform -c "SELECT email, role FROM users;"
+```
 
 ## Step 5 — Start the platform
 
