@@ -35,4 +35,7 @@ export const env = {
 
   EXPIRY_CHECK_CRON: process.env.EXPIRY_CHECK_CRON ?? '0 0 * * *',
   EXPIRY_WARNING_DAYS: parseInt(process.env.EXPIRY_WARNING_DAYS ?? '7', 10),
+  ANALYTICS_SNAPSHOT_CRON: process.env.ANALYTICS_SNAPSHOT_CRON ?? '*/15 * * * *',
+
+  APP_NAME: process.env.APP_NAME ?? 'SecureVPN',
 };

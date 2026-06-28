@@ -13,6 +13,11 @@ import { CreateUser } from './pages/admin/CreateUser';
 import { ConnectedUsers } from './pages/admin/ConnectedUsers';
 import { AuditLogs } from './pages/admin/AuditLogs';
 import { ServerHealth } from './pages/admin/ServerHealth';
+import { Servers } from './pages/admin/Servers';
+import { Countries } from './pages/admin/Countries';
+import { Analytics } from './pages/admin/Analytics';
+import { Notifications } from './pages/admin/Notifications';
+import { Settings as AdminSettings } from './pages/admin/Settings';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -29,6 +34,10 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   if (loading) return null;
   return isAdmin ? <>{children}</> : <Navigate to="/" replace />;
 }
+
+const Admin = ({ el }: { el: React.ReactNode }) => (
+  <RequireAuth><RequireAdmin>{el}</RequireAdmin></RequireAuth>
+);
 
 function AppRoutes() {
   const { isAuthenticated, isAdmin } = useAuth();
@@ -47,13 +56,18 @@ function AppRoutes() {
       <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
 
       {/* Admin routes */}
-      <Route path="/admin" element={<RequireAuth><RequireAdmin><AdminDashboard /></RequireAdmin></RequireAuth>} />
-      <Route path="/admin/users" element={<RequireAuth><RequireAdmin><Users /></RequireAdmin></RequireAuth>} />
-      <Route path="/admin/users/new" element={<RequireAuth><RequireAdmin><CreateUser /></RequireAdmin></RequireAuth>} />
-      <Route path="/admin/users/:id" element={<RequireAuth><RequireAdmin><UserDetail /></RequireAdmin></RequireAuth>} />
-      <Route path="/admin/connected" element={<RequireAuth><RequireAdmin><ConnectedUsers /></RequireAdmin></RequireAuth>} />
-      <Route path="/admin/audit" element={<RequireAuth><RequireAdmin><AuditLogs /></RequireAdmin></RequireAuth>} />
-      <Route path="/admin/health" element={<RequireAuth><RequireAdmin><ServerHealth /></RequireAdmin></RequireAuth>} />
+      <Route path="/admin" element={<Admin el={<AdminDashboard />} />} />
+      <Route path="/admin/users" element={<Admin el={<Users />} />} />
+      <Route path="/admin/users/new" element={<Admin el={<CreateUser />} />} />
+      <Route path="/admin/users/:id" element={<Admin el={<UserDetail />} />} />
+      <Route path="/admin/connected" element={<Admin el={<ConnectedUsers />} />} />
+      <Route path="/admin/audit" element={<Admin el={<AuditLogs />} />} />
+      <Route path="/admin/health" element={<Admin el={<ServerHealth />} />} />
+      <Route path="/admin/servers" element={<Admin el={<Servers />} />} />
+      <Route path="/admin/countries" element={<Admin el={<Countries />} />} />
+      <Route path="/admin/analytics" element={<Admin el={<Analytics />} />} />
+      <Route path="/admin/notifications" element={<Admin el={<Notifications />} />} />
+      <Route path="/admin/settings" element={<Admin el={<AdminSettings />} />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

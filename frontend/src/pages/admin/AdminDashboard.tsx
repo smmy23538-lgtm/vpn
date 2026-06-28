@@ -1,162 +1,144 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Users, UserCheck, UserX, Clock, Wifi,
-  Server, TrendingUp, AlertTriangle,
+  Users, UserCheck, UserX, Clock, Wifi, Server,
+  TrendingUp, AlertTriangle, UserPlus, Globe, ArrowRight,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { Card } from '../../components/common/Card';
-import { DashboardStats } from '../../types';
+import { Badge } from '../../components/common/Badge';
+import { DashboardStats, Notification } from '../../types';
+import { formatDistanceToNow } from 'date-fns';
 
-interface ServerHealth {
-  status: string;
-  server_host: string;
-  server_name: string;
-  connected_peers: number;
-  total_peers: number;
-  uptime_seconds: number;
-  memory_percent: number;
-}
-
-function formatUptime(seconds: number): string {
-  const d = Math.floor(seconds / 86400);
-  const h = Math.floor((seconds % 86400) / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  return `${d}d ${h}h ${m}m`;
-}
+const severityVariant: Record<string, 'success' | 'danger' | 'warning' | 'info'> = {
+  info: 'info', warning: 'warning', error: 'danger', success: 'success',
+};
 
 export function AdminDashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [health, setHealth] = useState<ServerHealth | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       api.get<DashboardStats>('/admin/stats'),
-      api.get<ServerHealth>('/admin/health'),
-    ]).then(([s, h]) => {
-      setStats(s);
-      setHealth(h);
-    }).finally(() => setLoading(false));
+      api.get<Notification[]>('/notifications', { unread: 'true', limit: '5' }),
+    ]).then(([s, n]) => { setStats(s); setNotifications(n); })
+      .finally(() => setLoading(false));
 
     const interval = setInterval(async () => {
-      const [s, h] = await Promise.all([
+      const [s, n] = await Promise.all([
         api.get<DashboardStats>('/admin/stats'),
-        api.get<ServerHealth>('/admin/health'),
+        api.get<Notification[]>('/notifications', { unread: 'true', limit: '5' }),
       ]);
-      setStats(s);
-      setHealth(h);
+      setStats(s); setNotifications(n);
     }, 30000);
-
     return () => clearInterval(interval);
   }, []);
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-slate-400">Loading dashboard...</div>
-        </div>
-      </AdminLayout>
-    );
-  }
+  const statCards = stats ? [
+    { icon: Users, label: 'Total Users',     value: stats.total_users,        color: 'text-brand-400',   bg: 'bg-brand-900/20' },
+    { icon: UserCheck, label: 'Active',      value: stats.active_users,       color: 'text-emerald-400', bg: 'bg-emerald-900/20' },
+    { icon: Wifi, label: 'Online Now',        value: stats.online_users,       color: 'text-green-400',   bg: 'bg-green-900/20' },
+    { icon: UserX, label: 'Expired',          value: stats.expired_users,      color: 'text-red-400',     bg: 'bg-red-900/20' },
+    { icon: AlertTriangle, label: 'Suspended',value: stats.suspended_users,    color: 'text-amber-400',   bg: 'bg-amber-900/20' },
+    { icon: Clock, label: 'Expiring Soon',    value: stats.expiring_soon,      color: 'text-orange-400',  bg: 'bg-orange-900/20' },
+    { icon: UserPlus, label: 'New This Month',value: stats.new_users_this_month,color: 'text-sky-400',    bg: 'bg-sky-900/20' },
+    { icon: Server, label: 'Servers Online', value: `${stats.online_servers ?? 0}/${stats.total_servers ?? 0}`, color: 'text-violet-400', bg: 'bg-violet-900/20' },
+  ] : [];
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100">Dashboard</h1>
-          <p className="text-slate-400 text-sm mt-1">Overview of your VPN platform</p>
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-100">Overview</h1>
+            <p className="text-slate-400 text-sm mt-0.5">Platform health at a glance</p>
+          </div>
+          <button
+            onClick={() => navigate('/admin/users/new')}
+            className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
+          >
+            <UserPlus className="w-4 h-4" />
+            New User
+          </button>
         </div>
 
         {/* Stats grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          <StatCard icon={<Users className="w-5 h-5 text-brand-400" />} label="Total Users" value={stats?.total_users ?? 0} />
-          <StatCard icon={<UserCheck className="w-5 h-5 text-emerald-400" />} label="Active" value={stats?.active_users ?? 0} color="emerald" />
-          <StatCard icon={<Wifi className="w-5 h-5 text-green-400" />} label="Online Now" value={stats?.online_users ?? 0} color="green" />
-          <StatCard icon={<UserX className="w-5 h-5 text-red-400" />} label="Expired" value={stats?.expired_users ?? 0} color="red" />
-          <StatCard icon={<AlertTriangle className="w-5 h-5 text-amber-400" />} label="Suspended" value={stats?.suspended_users ?? 0} color="amber" />
-          <StatCard icon={<Clock className="w-5 h-5 text-orange-400" />} label="Expiring Soon" value={stats?.expiring_soon ?? 0} color="orange" />
-        </div>
+        {loading ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="bg-slate-800 border border-slate-700 rounded-xl p-4 animate-pulse h-24" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {statCards.map(({ icon: Icon, label, value, color, bg }) => (
+              <div key={label} className="bg-slate-800 border border-slate-700 rounded-xl p-4 hover:border-slate-600 transition">
+                <div className={`w-8 h-8 ${bg} rounded-lg flex items-center justify-center mb-3`}>
+                  <Icon className={`w-4 h-4 ${color}`} />
+                </div>
+                <p className="text-2xl font-bold text-slate-100">{value}</p>
+                <p className="text-slate-400 text-xs mt-0.5">{label}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
-        {/* Server health */}
-        <Card title="Server Health">
-          {health ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <HealthItem
-                label="Status"
-                value={health.status}
-                color={health.status === 'online' ? 'text-emerald-400' : 'text-red-400'}
-                icon={<Server className="w-4 h-4" />}
-              />
-              <HealthItem
-                label="Server"
-                value={`${health.server_name} (${health.server_host})`}
-                color="text-slate-200"
-                icon={<Server className="w-4 h-4" />}
-              />
-              <HealthItem
-                label="Connected Peers"
-                value={`${health.connected_peers} / ${health.total_peers}`}
-                color="text-brand-400"
-                icon={<Wifi className="w-4 h-4" />}
-              />
-              <HealthItem
-                label="Memory Usage"
-                value={`${health.memory_percent}%`}
-                color={health.memory_percent > 80 ? 'text-red-400' : 'text-slate-200'}
-                icon={<TrendingUp className="w-4 h-4" />}
-              />
-              <HealthItem
-                label="API Uptime"
-                value={formatUptime(health.uptime_seconds)}
-                color="text-slate-200"
-                icon={<Clock className="w-4 h-4" />}
-              />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Notifications preview */}
+          <Card
+            title="Recent Alerts"
+            action={
+              <button onClick={() => navigate('/admin/notifications')} className="flex items-center gap-1 text-brand-400 hover:text-brand-300 text-xs transition">
+                View all <ArrowRight className="w-3 h-3" />
+              </button>
+            }
+          >
+            {notifications.length === 0 ? (
+              <p className="text-slate-500 text-sm text-center py-4">No new alerts</p>
+            ) : (
+              <div className="space-y-3">
+                {notifications.map((n) => (
+                  <div key={n.id} className="flex items-start gap-3">
+                    <Badge label={n.severity} variant={severityVariant[n.severity]} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-slate-200 text-sm font-medium truncate">{n.title}</p>
+                      <p className="text-slate-500 text-xs">{formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* Quick actions */}
+          <Card title="Quick Actions">
+            <div className="space-y-2">
+              {[
+                { label: 'Create new user', icon: UserPlus, to: '/admin/users/new', color: 'text-brand-400' },
+                { label: 'View connected users', icon: Wifi, to: '/admin/connected', color: 'text-emerald-400' },
+                { label: 'Add a VPN server', icon: Server, to: '/admin/servers', color: 'text-violet-400' },
+                { label: 'Add a country', icon: Globe, to: '/admin/countries', color: 'text-sky-400' },
+                { label: 'View analytics', icon: TrendingUp, to: '/admin/analytics', color: 'text-amber-400' },
+              ].map(({ label, icon: Icon, to, color }) => (
+                <button
+                  key={to}
+                  onClick={() => navigate(to)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm
+                             text-slate-300 hover:text-slate-100 hover:bg-slate-700 transition text-left"
+                >
+                  <Icon className={`w-4 h-4 ${color} flex-shrink-0`} />
+                  {label}
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-600 ml-auto" />
+                </button>
+              ))}
             </div>
-          ) : (
-            <p className="text-slate-400 text-sm">Unable to reach server</p>
-          )}
-        </Card>
+          </Card>
+        </div>
       </div>
     </AdminLayout>
-  );
-}
-
-function StatCard({
-  icon, label, value, color = 'brand',
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  color?: string;
-}) {
-  return (
-    <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
-      <div className="flex items-center justify-between mb-2">
-        {icon}
-      </div>
-      <p className="text-2xl font-bold text-slate-100">{value}</p>
-      <p className="text-slate-400 text-xs mt-1">{label}</p>
-    </div>
-  );
-}
-
-function HealthItem({
-  icon, label, value, color,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  color: string;
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-1.5 text-slate-500 text-xs">
-        {icon}
-        {label}
-      </div>
-      <p className={`text-sm font-medium ${color}`}>{value}</p>
-    </div>
   );
 }
