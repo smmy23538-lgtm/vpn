@@ -63,6 +63,9 @@ export async function updateUser(
     wg_public_key: string | null;
     wg_private_key: string | null;
     wg_preshared_key: string | null;
+    server_id: string | null;
+    country_id: string | null;
+    notes: string | null;
   }>
 ): Promise<User> {
   const fields: string[] = [];
@@ -140,6 +143,9 @@ export async function getDashboardStats(): Promise<{
   expired_users: number;
   suspended_users: number;
   expiring_soon: number;
+  new_users_this_month: number;
+  total_servers: number;
+  online_servers: number;
 }> {
   const [stats] = await query<{
     total_users: string;
@@ -147,6 +153,7 @@ export async function getDashboardStats(): Promise<{
     expired_users: string;
     suspended_users: string;
     expiring_soon: string;
+    new_users_this_month: string;
   }>(
     `SELECT
        COUNT(*)                                                             AS total_users,
@@ -155,8 +162,15 @@ export async function getDashboardStats(): Promise<{
        COUNT(*) FILTER (WHERE status = 'suspended')                        AS suspended_users,
        COUNT(*) FILTER (WHERE status = 'active'
                           AND expiration_date BETWEEN NOW()
-                          AND NOW() + INTERVAL '7 days')                   AS expiring_soon
+                          AND NOW() + INTERVAL '7 days')                   AS expiring_soon,
+       COUNT(*) FILTER (WHERE created_at >= date_trunc('month', NOW()))    AS new_users_this_month
      FROM users WHERE role = 'customer'`
+  );
+
+  const [serverStats] = await query<{ total: string; online: string }>(
+    `SELECT COUNT(*)::text AS total,
+            COUNT(*) FILTER (WHERE status = 'online' AND is_active = TRUE)::text AS online
+     FROM servers`
   );
 
   return {
@@ -165,6 +179,9 @@ export async function getDashboardStats(): Promise<{
     expired_users: parseInt(stats.expired_users, 10),
     suspended_users: parseInt(stats.suspended_users, 10),
     expiring_soon: parseInt(stats.expiring_soon, 10),
+    new_users_this_month: parseInt(stats.new_users_this_month, 10),
+    total_servers: parseInt(serverStats.total, 10),
+    online_servers: parseInt(serverStats.online, 10),
   };
 }
 
