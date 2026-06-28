@@ -2,6 +2,7 @@ import { query, queryOne } from '../config/database';
 import { wgManager } from './wgeasy.manager';
 import { NotFoundError, ConflictError } from '../utils/errors';
 import { logger } from '../utils/logger';
+import { env } from '../config/env';
 
 export interface ServerRecord {
   id: string;
@@ -108,7 +109,7 @@ export async function deleteServer(id: string): Promise<void> {
 
 export async function checkServerHealth(s: ServerRecord): Promise<{ online: boolean; latency: number; peers: number }> {
   try {
-    const wg = wgManager.getInstance({ url: `http://${s.host}:${s.port}`, password: s.wg_password ?? '' });
+    const wg = wgManager.getInstance({ url: `http://${s.host}:${s.port}`, password: s.wg_password ?? env.WGEASY_PASSWORD });
     const latency = await wg.pingLatency();
     if (latency < 0) {
       await query(`UPDATE servers SET status = 'offline', latency_ms = NULL WHERE id = $1`, [s.id]);

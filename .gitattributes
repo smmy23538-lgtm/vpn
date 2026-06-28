@@ -1,0 +1,7 @@
+# Force LF line endings for shell scripts and SQL (they run on Linux)
+*.sh    text eol=lf
+*.sql   text eol=lf
+*.conf  text eol=lf
+
+# Normalise everything else
+*       text=auto
