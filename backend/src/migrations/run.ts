@@ -1,10 +1,12 @@
 import fs from 'fs';
 import path from 'path';
-import { pool, checkConnection } from '../config/database';
-import { logger } from '../utils/logger';
+import pg from 'pg';
 
 async function runMigrations(): Promise<void> {
-  await checkConnection();
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) throw new Error('DATABASE_URL is required');
+
+  const pool = new pg.Pool({ connectionString: dbUrl });
   const client = await pool.connect();
 
   try {
@@ -14,11 +16,15 @@ async function runMigrations(): Promise<void> {
       .filter((f) => f.endsWith('.sql'))
       .sort();
 
+    if (files.length === 0) {
+      console.log('No SQL migration files found in', migrationsDir);
+    }
+
     for (const file of files) {
       const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-      logger.info(`Running migration: ${file}`);
+      console.log(`Running migration: ${file}`);
       await client.query(sql);
-      logger.info(`Migration done: ${file}`);
+      console.log(`Migration done: ${file}`);
     }
   } finally {
     client.release();
@@ -27,6 +33,6 @@ async function runMigrations(): Promise<void> {
 }
 
 runMigrations().catch((err) => {
-  logger.error('Migration failed', { error: String(err) });
+  console.error('Migration failed:', err);
   process.exit(1);
 });
