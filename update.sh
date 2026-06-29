@@ -95,11 +95,7 @@ divider "Rebuilding and restarting services"
 # =============================================================================
 
 info "Building updated images..."
-$DC build --parallel 2>&1 | while IFS= read -r line; do
-  if [[ "$line" =~ (Step|error|Error|Successfully) ]]; then
-    echo -e "    ${DIM}${line}${NC}"
-  fi
-done
+$DC build 2>&1
 ok "Images built"
 
 info "Restarting services..."

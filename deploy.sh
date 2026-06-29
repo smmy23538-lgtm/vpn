@@ -233,11 +233,7 @@ divider "STEP 3/9  Building Docker images"
 # =============================================================================
 
 info "Building backend and frontend images (2–5 min on first run)..."
-$DC build --parallel 2>&1 | while IFS= read -r line; do
-  if [[ "$line" =~ (Step|RUN|COPY|error|Error|warning|Warning|Successfully) ]]; then
-    echo -e "    ${DIM}${line}${NC}"
-  fi
-done
+$DC build 2>&1
 ok "Images built"
 
 # =============================================================================
