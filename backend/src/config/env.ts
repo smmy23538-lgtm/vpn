@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-function require(key: string, fallback?: string): string {
+function getEnv(key: string, fallback?: string): string {
   const val = process.env[key] ?? fallback;
   if (val === undefined) throw new Error(`Missing required env var: ${key}`);
   return val;
@@ -11,16 +11,16 @@ export const env = {
   NODE_ENV: process.env.NODE_ENV ?? 'development',
   PORT: parseInt(process.env.PORT ?? '3001', 10),
 
-  DATABASE_URL: require('DATABASE_URL'),
+  DATABASE_URL: getEnv('DATABASE_URL'),
 
-  JWT_SECRET: require('JWT_SECRET'),
+  JWT_SECRET: getEnv('JWT_SECRET'),
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN ?? '7d',
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN ?? '30d',
 
-  ENCRYPTION_KEY: require('ENCRYPTION_KEY'),
+  ENCRYPTION_KEY: getEnv('ENCRYPTION_KEY'),
 
   WGEASY_URL: process.env.WGEASY_URL ?? 'http://3.21.126.65:51821',
-  WGEASY_PASSWORD: require('WGEASY_PASSWORD'),
+  WGEASY_PASSWORD: getEnv('WGEASY_PASSWORD'),
 
   CORS_ORIGIN: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
 
