@@ -131,12 +131,14 @@ export async function getVpnStatus(userId: string): Promise<VpnStatus> {
 }
 
 export async function getClientConfig(userId: string): Promise<string> {
-  const user = await findById(userId);
+  let user = await findById(userId);
   if (!user) throw new NotFoundError('User');
-  if (!user.wg_client_id) throw new AppError('No VPN peer configured', 400);
+  if (!user.wg_client_id) {
+    user = await provisionVpnPeer(user, userId);
+  }
   const server = user.server_id ? await getServerById(user.server_id) : null;
   const wg = server ? wgFor(server) : wgManager.getDefault();
-  return wg.getConfig(user.wg_client_id);
+  return wg.getConfig(user.wg_client_id!);
 }
 
 export async function getConnectedUsers() {
