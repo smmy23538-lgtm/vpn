@@ -50,7 +50,7 @@ class WgEasyInstance {
   async createClient(name: string): Promise<WgEasyClient> {
     return this.req(async () => {
       try {
-        return (await this.client.post<WgEasyClient>('/api/wireguard/client', { name })).data;
+        await this.client.post('/api/wireguard/client', { name });
       } catch (err) {
         logger.error('wg-easy: createClient failed', {
           status: axios.isAxiosError(err) ? err.response?.status : undefined,
@@ -59,6 +59,14 @@ class WgEasyInstance {
         });
         throw new WgEasyError('Failed to create WireGuard peer');
       }
+      // wg-easy's create endpoint replies with {"success":true}, not the new
+      // client — fetch it back from the list by name (most recent match).
+      const { data: clients } = await this.client.get<WgEasyClient[]>('/api/wireguard/client');
+      const created = clients
+        .filter((c) => c.name === name)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+      if (!created) throw new WgEasyError('WireGuard peer created but could not be located');
+      return created;
     });
   }
 
