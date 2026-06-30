@@ -34,7 +34,11 @@ class WgEasyInstance {
     try {
       return await fn();
     } catch (err: unknown) {
-      if (axios.isAxiosError(err) && err.response?.status === 401) {
+      // wg-easy returns 401 for a missing cookie, but 500 for a cookie that
+      // references a session it no longer has (e.g. after a container
+      // restart) — treat both as "session is stale, re-auth and retry once".
+      const status = axios.isAxiosError(err) ? err.response?.status : undefined;
+      if (status === 401 || status === 500) {
         this.sessionCookie = null;
         await this.authenticate();
         return await fn();
