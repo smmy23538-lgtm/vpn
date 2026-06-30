@@ -60,6 +60,7 @@ export interface WgEasyClient {
   transferRx: number;
   transferTx: number;
   latestHandshakeAt: string | null;
+  createdAt: string;
 }
 
 export interface VpnStatus {
