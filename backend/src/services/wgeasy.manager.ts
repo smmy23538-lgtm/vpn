@@ -26,6 +26,7 @@ class WgEasyInstance {
       this.sessionCookie = setCookie[0].split(';')[0];
       this.client.defaults.headers.common['Cookie'] = this.sessionCookie;
     }
+    logger.info('wg-easy: authenticate', { url: this.config.url, cookieSet: !!setCookie });
   }
 
   private async req<T>(fn: () => Promise<T>): Promise<T> {
@@ -50,7 +51,14 @@ class WgEasyInstance {
     return this.req(async () => {
       try {
         return (await this.client.post<WgEasyClient>('/api/wireguard/client', { name })).data;
-      } catch { throw new WgEasyError('Failed to create WireGuard peer'); }
+      } catch (err) {
+        logger.error('wg-easy: createClient failed', {
+          status: axios.isAxiosError(err) ? err.response?.status : undefined,
+          data: axios.isAxiosError(err) ? err.response?.data : undefined,
+          message: err instanceof Error ? err.message : String(err),
+        });
+        throw new WgEasyError('Failed to create WireGuard peer');
+      }
     });
   }
 
@@ -78,7 +86,14 @@ class WgEasyInstance {
   async getConfig(id: string): Promise<string> {
     return this.req(async () => {
       try { return (await this.client.get<string>(`/api/wireguard/client/${id}/configuration`)).data; }
-      catch { throw new WgEasyError('Failed to fetch WireGuard config'); }
+      catch (err) {
+        logger.error('wg-easy: getConfig failed', {
+          status: axios.isAxiosError(err) ? err.response?.status : undefined,
+          data: axios.isAxiosError(err) ? err.response?.data : undefined,
+          message: err instanceof Error ? err.message : String(err),
+        });
+        throw new WgEasyError('Failed to fetch WireGuard config');
+      }
     });
   }
 
