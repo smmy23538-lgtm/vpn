@@ -149,16 +149,20 @@ export async function checkServerHealth(s: ServerRecord): Promise<{ online: bool
 }
 
 export async function getServerForUser(userId: string): Promise<ServerRecord | null> {
-  return queryOne<ServerRecord>(
+  const s = await queryOne<ServerRecord>(
     `SELECT s.* FROM servers s
      INNER JOIN users u ON u.server_id = s.id
      WHERE u.id = $1 AND s.is_active = TRUE`,
     [userId]
   );
+  if (!s) return null;
+  return { ...s, wg_password: decryptPw(s.wg_password) };
 }
 
 export async function getDefaultServer(): Promise<ServerRecord | null> {
-  return queryOne<ServerRecord>(
+  const s = await queryOne<ServerRecord>(
     `SELECT * FROM servers WHERE is_active = TRUE AND status = 'online' ORDER BY created_at LIMIT 1`
   );
+  if (!s) return null;
+  return { ...s, wg_password: decryptPw(s.wg_password) };
 }
